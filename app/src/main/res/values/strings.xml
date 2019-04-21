@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">A7.1</string>
+    <string name="app_name">Deep Link Server</string>
     <string name="sendData">发送数据</string>
 </resources>
