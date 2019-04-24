@@ -548,65 +548,174 @@ public class AddJsonParameterUtil {
 
 
     public void generateDeepLink(String activityName,String specialKey,Intent intent){
+        Log.i("ycx", "original intent:" + intent.toURI());
         Log.i("ycx", "====================");
+        String deepLink = "dl://";
+        String action = intent.getAction();
+        String componentName = intent.getComponent().flattenToString();
+        int flag = intent.getFlags();
+        Boolean linkerFlag = false;
+        if (componentName != null) {
+            deepLink = deepLink + componentName + "?";
+            Log.d("ycx", deepLink);
+        }
+        // TODO 观察常用的action
+        if (action != null) {
+            deepLink = deepLink + "Action=" + action;
+            linkerFlag = true;
+            //Log.d("ycx", deepLink);
+        }
+        // TODO 官场常用的flag
+        if (flag != 0) {
+            if(linkerFlag) deepLink = deepLink + "&&&";
+            deepLink = deepLink + "Flag=" + flag;
+            linkerFlag = true;
+            Log.d("ycx", deepLink);
+        }
         Bundle bundle = intent.getExtras();
-        Set<String> keys = bundle.keySet();
-        for(String key: keys){
-            Log.i("ycx", "key name:" + key);
-            Object o = bundle.get(key);
-            if(o instanceof Parcelable) {
-                Log.i("ycx", "it's a Parcelable object");
-                Log.i("ycx", "class name:" + o.getClass().getName());
-                try {
-                    Class clazz =o.getClass();
-                    Field[] fields = clazz.getDeclaredFields();
-                    for(Field field: fields) {
-                        String fieldName = field.getName();
-                        Log.i("ycx", "field name:" + fieldName);
-                        String fieldType = field.getType().getName();
-                        Log.i("ycx", "field type:" + fieldType);
+        if(bundle != null) {
+            Set<String> keys = bundle.keySet();
+            for(String key: keys){
+                String value = null;
+                Log.i("ycx", "key name:" + key);
+                Object o = bundle.get(key);
+                if(o instanceof Parcelable) {
+                    value = IntentUtil.parcelableToString((Parcelable) o);
+                    if(value != null) {
+                        if(linkerFlag) deepLink = deepLink + "&&&";
+                        deepLink = deepLink + "P.'" + o.getClass().getName() + "'" + key + "=" + value;
+                        linkerFlag = true;
+                        Log.d("ycx", deepLink);
+                    }
+                    Log.i("ycx", "it's a Parcelable object");
+                    try {
+                        Log.i("ycx", "class name:" + o.getClass().getName());
+                        Class clazz = o.getClass();
+                        Field[] fields = clazz.getDeclaredFields();
+                        for(Field field: fields) {
+                            String fieldName = field.getName();
+                            Log.i("ycx", "field name:" + fieldName);
+                            String fieldType = field.getType().getName();
+                            Log.i("ycx", "field type:" + fieldType);
+                            try {
+                                String methodName = toUpperCaseFirstOne(fieldName);
+                                Method method = clazz.getMethod(methodName);
+                                method.setAccessible(true);
+                                Object fieldValue = method.invoke(o);
+                                Log.i("ycx", "field value:" + fieldValue.toString());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                } else if(o instanceof Serializable) {
+                    String className = o.getClass().getName();
+                    Log.i("ycx", "class name:" + className);
+                    value = o.toString();
+                    String prefix = className.equals("java.lang.String")    ? "S." :
+                            className.equals("java.lang.Boolean")   ? "B." :
+                                    className.equals("java.lang.Byte")      ? "b." :
+                                            className.equals("java.lang.Character") ? "c." :
+                                                    className.equals("java.lang.Double")    ? "d." :
+                                                            className.equals("java.lang.Float")     ? "f." :
+                                                                    className.equals("java.lang.Integer")   ? "i." :
+                                                                            className.equals("java.lang.Long")      ? "l." :
+                                                                                    className.equals("java.lang.Short")     ? "s." :
+                                                                                            className.equals("java.util.ArrayList") ? "A." :
+                                                                                                    "O.";
+                    if(prefix.equals("A.")) {
+                        Log.i("ycx", "find an array");
+                        ArrayList<Object> list = (ArrayList<Object>) o;
+                        int size = list.size();
+                        Log.i("ycx", "size:" + size);
+
+                        Boolean isSuccess = true;
+                        Boolean itemLinkerFlag = false;
+                        String tempParameter = "A." + key + "=";
+
                         try {
-                            String methodName = toUpperCaseFirstOne(fieldName);
-                            Method method = clazz.getMethod(methodName);
-                            method.setAccessible(true);
-                            Object value = method.invoke(o);
-                            Log.i("ycx", "field value:" + value.toString());
+                            for(int i = 0 ; i < size; i++) {
+                                Log.i("ycx", "No." + i);
+                                Object arrayItem = list.get(i);
+                                String arrayItemClassName = arrayItem.getClass().getName();
+                                Log.i("ycx", "item class name:" + arrayItemClassName);
+                                String arrayItemValue = arrayItem.toString();
+                                Log.i("ycx", "item value:" + arrayItemValue);
+                                if(arrayItem instanceof Serializable) {
+                                    if(itemLinkerFlag) tempParameter += "_#_";
+                                    tempParameter += arrayItemClassName + "=" + IntentUtil.serializableToString((Serializable)arrayItem);
+                                    itemLinkerFlag = true;
+                                } else if (arrayItem instanceof Parcelable) {
+                                    if(itemLinkerFlag) tempParameter += "_#_";
+                                    tempParameter += arrayItemClassName + "=" + IntentUtil.parcelableToString((Parcelable) arrayItem);
+                                    itemLinkerFlag = true;
+                                }
+                            }
                         } catch (Exception e) {
+                            isSuccess = false;
+                            Log.i("ycx", "序列化array失败");
                             e.printStackTrace();
                         }
+                        if(isSuccess) {
+                            if(linkerFlag) deepLink+= "&&&";
+                            deepLink = deepLink + tempParameter;
+                            Log.d("ycx", deepLink);
+                            linkerFlag = true;
+                        }
+                    } else if(prefix.equals("O.")) {
+                        Log.i("ycx", "find a serializable object");
+                        Boolean isSuccess = true;
+                        String tempParameter = null;
+                        try{
+                            tempParameter = "O." + "'" + className + "'" + key + "=";
+                            tempParameter += IntentUtil.serializableToString((Serializable) o);
+                        } catch (Exception e) {
+                            isSuccess = false;
+                            Log.i("ycx", "序列化serializable object失败");
+                            e.printStackTrace();
+                        }
+                        if(isSuccess) {
+                            if(linkerFlag) deepLink+= "&&&";
+                            deepLink = deepLink + tempParameter;
+                            Log.d("ycx", deepLink);
+                            linkerFlag = true;
+                        }
+                    } else {
+                        Log.i("ycx", "find a serializable basic type");
+                        Boolean isSuccess = true;
+                        String tempParameter = null;
+                        try{
+                            tempParameter = prefix + key + "=";
+                            tempParameter += value;
+                        } catch (Exception e) {
+                            isSuccess = false;
+                            Log.i("ycx", "序列化serializable basic type失败");
+                            e.printStackTrace();
+                        }
+                        if(isSuccess) {
+                            if(linkerFlag) deepLink+= "&&&";
+                            deepLink = deepLink + tempParameter;
+                            Log.d("ycx", deepLink);
+                            linkerFlag = true;
+                        }
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
+
+                } else {
+                    Log.wtf("ycx", "Warning! it's an unknown type");
+                    Log.wtf("ycx", "class name:" + o.getClass().getName());
                 }
-            } else if(o instanceof Serializable) {
-                Log.i("ycx","it's a serializable object");
-                String className = o.getClass().getName();
-                Log.i("ycx", "class name:" + className);
-                String value = o.toString();
-                String prefix = className.equals("java.lang.String")    ? "S." :
-                                className.equals("java.lang.Boolean")   ? "B." :
-                                className.equals("java.lang.Byte")      ? "b." :
-                                className.equals("java.lang.Character") ? "c." :
-                                className.equals("java.lang.Double")    ? "d." :
-                                className.equals("java.lang.Float")     ? "f." :
-                                className.equals("java.lang.Integer")   ? "i." :
-                                className.equals("java.lang.Long")      ? "l." :
-                                className.equals("java.lang.Short")     ? "s." :
-                                className.equals("java.util.ArrayList") ? "A." :
-                                "O.";
-                Log.i("ycx", prefix+value);
-            } else {
-                Log.wtf("ycx", "Warning! it's an unknown type");
-                Log.wtf("ycx", "class name:" + o.getClass().getName());
             }
-
-
         }
+        if(linkerFlag == false) {
+            deepLink = deepLink.substring(0,deepLink.indexOf("?"));
+        }
+
         Log.i("ycx", "====================");
 
 
-        Log.i("ycx", "original intent:" + intent.toURI());
-
+        /*
         String path = Environment.getExternalStorageDirectory().getAbsolutePath()+"/org.wikipedia.alpha.xml";
         Log.i("ycx", "path:" + path);
         List<JSONNode> lists = getJSONFromXML(activityName,path);
@@ -666,12 +775,13 @@ public class AddJsonParameterUtil {
             Log.i("ycx", "result size:" + result.size());
             Log.i("ycx", "length:" + result.toJSONString().length());
         }
+        */
 
 
         Intent broadIntent = new Intent();
         broadIntent.setAction(SaveJSONAndIntentByIt.SAVE_JSON);
         broadIntent.putExtra(SaveJSONAndIntentByIt.KEY,specialKey);
-        broadIntent.putExtra(SaveJSONAndIntentByIt.JSON_DATA,result.toJSONString());
+        broadIntent.putExtra(SaveJSONAndIntentByIt.JSON_DATA,deepLink);
         activity.sendBroadcast(broadIntent);
         Log.i("ycx", "finish generateDeepLink");
     }

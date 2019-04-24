@@ -130,18 +130,20 @@ public class LocalActivityReceiver extends BroadcastReceiver implements CallBack
             case LocalActivityReceiver.openTargetActivityByDeepLink:
                 Log.i("ycx", "receive openTargetActivityByDeepLink command.");
                 String deepLink = intent.getStringExtra(LocalActivityReceiver.DEEP_LINK);
-                Intent restoredIntent = DeepLinkUtil.buildIntentFromDeepLink(deepLink);
-                Log.i("ycx", "restored intent:" + restoredIntent.toURI());
-                //startActivityFrom = intent.getStringExtra(LocalActivityReceiver.fromActivityStart);
                 String tarPackageName = intent.getStringExtra(LocalActivityReceiver.tarPackageName);
+                if(tarPackageName.equals(selfPackageName)){
+                    Intent restoredIntent = DeepLinkUtil.buildIntentFromDeepLink(deepLink);
+                    Log.i("ycx", "restored intent:" + restoredIntent.toURI());
+                    selfActivity.startActivity(restoredIntent);
+                }
+                //startActivityFrom = intent.getStringExtra(LocalActivityReceiver.fromActivityStart);
+
 
                 if(selfPackageName.compareTo(tarPackageName)!=0||showActivityName.compareTo(selfActivityName)!=0){
                     //Log.i("ycx", "break???");
                     break;
                 }
                 //Log.i("ycx","从"+selfActivityName+"打开"+startActivityFrom);
-
-                selfActivity.startActivity(restoredIntent);
                 break;
 
         }

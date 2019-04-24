@@ -59,7 +59,10 @@ public class HttpServer extends NanoHTTPD {
                 // 尝试三次
                 for(int i = 0; i < 3; i++) {
                     if(savePreference.testKey(randomKey)) {
-                        String JsonStr = savePreference.readJSONStr(randomKey);
+                        String deepLink = savePreference.readJSONStr(randomKey);
+                        Log.i("ycx", "received deep link:" + deepLink);
+                        return newFixedLengthResponse(deepLink);
+                        /*
                         JSONObject json = (JSONObject) JSON.parse(JsonStr);
 
                         Log.i("ycx", "intent json:" + JsonStr);
@@ -69,9 +72,9 @@ public class HttpServer extends NanoHTTPD {
                             return newFixedLengthResponse("not found!");
                         } else {
                             if (uri.equals("/getDeepLink")){
-                                JSONArray jsonArray = (JSONArray) json.get("0");
-                                String deepLink = getDeepLinkFromJson(jsonArray);
-                                return newFixedLengthResponse(deepLink);
+                                //JSONArray jsonArray = (JSONArray) json.get("0");
+                                //String deepLink = getDeepLinkFromJson(jsonArray);
+                                return newFixedLengthResponse(JsonStr);
                             } else if (uri.equals("/getDeepLinks")){
                                 int current;
                                 StringBuilder builder = new StringBuilder();
@@ -84,7 +87,7 @@ public class HttpServer extends NanoHTTPD {
                             } else {
                                 return newFixedLengthResponse("Bad Request!");
                             }
-                        }
+                        }*/
                     }
                     try{
                         Thread.sleep(500);
@@ -173,6 +176,32 @@ public class HttpServer extends NanoHTTPD {
 
             }
         } else if(NanoHTTPD.Method.POST.equals(method)) {
+            try  {
+                HashMap<String, String> files = new HashMap<String, String>();
+                session.parseBody(files);
+                String deepLink = files.get("postData");
+                //Log.i("ycx", "body:" + body);
+                Log.i("ycx", "deep link length:" + deepLink.length());
+                if(!deepLink.startsWith("dl://")) {
+                    return newFixedLengthResponse("illegal deep link!");
+                }
+                ActivityController controller = ActivityController.getInstance(mCoreService.getApplicationContext());
+                OpenActivityByDeepLinkTask task = new OpenActivityByDeepLinkTask(controller.myHandler);
+                task.setDeepLink(deepLink);
+                task.setTaskType(OpenActivityTask.openByDeepLinkType);
+                controller.addTask(DeepLinkUtil.getPackageName(deepLink),null,task);
+                return newFixedLengthResponse("success");
+            } catch (IOException e) {
+                e.printStackTrace();
+                return newFixedLengthResponse("catch IOException");
+            } catch (ResponseException e) {
+                e.printStackTrace();
+                return newFixedLengthResponse("catch ResponseException");
+            } catch (JSONException e) {
+                e.printStackTrace();
+                return newFixedLengthResponse("catch JSONException");
+            }
+            /*
             try {
                 HashMap<String, String> files = new HashMap<String, String>();
                 session.parseBody(files);
@@ -257,6 +286,7 @@ public class HttpServer extends NanoHTTPD {
                 e.printStackTrace();
                 return newFixedLengthResponse("catch JSONException");
             }
+            */
         }
 
 

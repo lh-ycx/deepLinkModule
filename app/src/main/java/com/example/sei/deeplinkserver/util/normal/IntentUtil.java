@@ -181,17 +181,16 @@ public class IntentUtil {
         }
         return false;
     }
-    private static String serializableToString(Serializable serializable){
+    public static String serializableToString(Serializable serializable){
         JSONObject jsonObject = (JSONObject) JSONObject.toJSON(serializable);
         return jsonObject.toJSONString();
-
     }
-    private static String parcelableToString(Parcelable parcelable){
+    public static String parcelableToString(Parcelable parcelable){
         byte[] bytes = parcelableToByte(parcelable);
         String value = byteToString(bytes);
         return value;
     }
-    private static byte[] parcelableToByte(Parcelable parcelable){
+    public static byte[] parcelableToByte(Parcelable parcelable){
         Parcel parcel = Parcel.obtain();
         parcel.setDataPosition(0);
         parcel.writeParcelable(parcelable,0);
@@ -199,7 +198,7 @@ public class IntentUtil {
         parcel.recycle();
         return bytes;
     }
-    private static String byteToString(byte[] bytes){
+    public static String byteToString(byte[] bytes){
         String value = Base64.encodeToString(bytes,0);
         return value;
     }
@@ -209,6 +208,8 @@ public class IntentUtil {
     }
     public static Parcelable byteToParcelable(byte[] bytes,Class clazz){
         Parcel parcel = Parcel.obtain();
+        if(clazz == null)
+            return null;
         parcel.unmarshall(bytes,0,bytes.length);
         parcel.setDataPosition(0);
         Parcelable parcelable = parcel.readParcelable(clazz.getClassLoader());
